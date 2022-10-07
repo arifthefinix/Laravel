@@ -1,0 +1,593 @@
+Step 3: Update Package Installer
+We will be using the Apt-Get package installer to install new programs on our server. Think of this like the Apple App Store or Google Play Store, except not as cool looking, and it is for Linux programs.
+
+Before we start installing things, let’s make sure that our Apt-Get Installer is up to date. To do this just tell it to update with this command:
+
+sudo apt-get update
+You will see a bunch of text, and eventually you will get your command prompt again. I encourage you to read some of the output to get used to how apt-get works. The chances of this failing are pretty small, so everyone should be able to move on easily from here.
+
+Note: as a side note, you will see us using the term sudo in front of many of the commands in this tutorial. Sudo stands for “super-user do” and tells our computer to do whatever we are asking as the super user. The super user is basically the admin. By default we are using the root user which has super user privileges. In more advanced tutorials you might make another account for yourself and then give yourself super user privileges. For simplicity we will be using the root user account in this tutorial.
+
+Step 4: Install Nginx
+Now that we are up to date with our installer, let’s use it to install our server Nginx.
+
+sudo apt-get install nginx
+It is surprising how easy this is. If you are using Ubuntu 16.04, then Nginx will even start running itself after being installed.
+
+In fact you should be able to now visit your IP-Address and you will see that Nginx is working. You could even share this URL with your friends and they would be able to see it too (of course I don’t know why you would want to).
+
+Nginx Welcome Page
+If you see this page, then you know that your server is working and Nginx successfully installed.
+Some configuration is still needed to get Nginx to show our Laravel app, but we will come back to that. We need to set up a few other things first such as Mysql and PHP.
+
+Step 5: Install MySQL
+Ok, a server isn’t much use without a database. In fact our Laravel application is kind of a waste unless we have a database to store our information (otherwise why not make a single page app or plain old HTML?).
+
+Of course you could always install another database, but we will be installing MySQL here. To get started, we need to use Apt-Get to go install the base Mysql Install.
+
+sudo apt-get install mysql-server
+This will start installing MySQL. Let the install run until a bright pink/purple screen pops up. This might just be the worst color selection for any terminal application ever, but there isn’t much we can do about it but to embrace it. You will want to type in a password to use for the root MySQL user. Choose something secure here and then click the enter key.
+
+Create a MySQL Password
+After selecting a password for MySQL it will ask you to confirm.
+After you make your first password it will ask you to confirm. Obviously make sure they match. Also, this is a password you need to remember. So make sure you store the password somewhere safe or it is something you can remember. You will be using this password a lot going forward.
+
+Once your command line finished and displays the root@localhost:~# line again, then you know you are complete with MySQL.
+
+Secure your Install
+You know that friend that just has that reputation for being the person you can’t tell a secret to no matter what? Well MySQL has a reputation for being unsecure. It is not because it is unsecure itself, but because most people that set it up leave many default settings in place and the default settings are not secure at all. For example, on my local computer my MySQL doesn’t even have a password at all and the only user is root. This is ok because it is only on my local computer and because it doesn’t store anything important, but on your server this is a bad idea.
+
+MySQL luckily has a nice helper script which gets rid of a lot of these bad habits that MySQL has. For example it makes sure you don’t have an empty password for your root user, it gets rid of the test database, and removes remote root user access. These setting changes will make your MySQL more secure. To get all these security fixes to take effect, just type this into the terminal:
+
+sudo mysql_secure_installation
+Depending on your version it might ask you to install the VALIDATE PASSWORD plugin. I personally don’t think this is necessary since I will have control over making new users and I will make sure the passwords are secure enough, so I will skip over this setting. (Type ‘N’).
+
+VALIDATE PASSWORD PLUGIN can be used to test passwords
+and improve security. It checks the strength of password
+and allows the users to set only those passwords which are
+secure enough. Would you like to setup VALIDATE PASSWORD plugin?
+
+Press y|Y for Yes, any other key for No:
+Next it will ask you if you want to change the existing password for root user. If you just set a secure password in the last step then you can also skip this question by pressing any key (other than ‘Y’). If you left the password blank or set up a silly password (like ‘password’ or ‘1234’) then go ahead and change your password now.
+
+Next it will ask you to remove an anonymous user. Type Y to remove the anonymous users, this is a major security risk.
+
+Now it will ask if you want to Disallow root login remotely? and you should also select Y for this.
+
+Another prompt asks to Remove test database and access to it? This is a good idea to do, so type Y again for this.
+
+It may also ask to reload privilege tables now? This is always a good idea, so type Y again.
+
+The terminal will tell you All Done! With this announcement we now have a LEM stack, which really isn’t a think. But I thought you would like to know your progress as we just completed the M in LEMP with our MySQL instance. Now let’s finish it up and get the P.
+
+Step 6: Install PHP
+Ok I kind of tricked you, because your Ubuntu instance probably already has base PHP set up. But you need to set up PHP for processing. This comes in the form of a plugin called php-fpm which is a boring as hell name which sounds much cooler in its full version “FastCGI Process Manager”.
+
+We need to install both php-fpm and while we are at it, we will grab php-mysql which as you might guess, allows us to use PHP to talk to MySQL. Lastly we will install php-mbstring which is a requirement for Laravel.
+
+sudo apt-get install php-fpm php-mysql php-mbstring
+At the time of this writing, this will install the cool new version of PHP, version 7! With PHP now installed, we have our full LEMP stack installed.
+
+Step 7: Configure PHP
+With the stack installed, it is now time to configure everything to get it working. There isn’t much to configure with PHP, but there is one small security fix we need to make.
+
+In your terminal, open up your php.ini file in whatever text editor you wish (VIM, or eMacs) but for simplicity, we will use Nano in this tutorial.
+
+sudo nano /etc/php/7.0/fpm/php.ini
+The line we need to edit is cgi.fix_pathinfo=0 so you can either search for it like a needle in a haystack, or you can search for it using Ctrl+W , I personally recommend searching for it.
+
+Press Ctrl+W and now type in cgi.fix_pathinfo= and click enter. This will take you to the right line right away. You will see a semicolon the left of this line. Delete the semi colon and then change the 1 into a 0 and save the file. The file should look like this upon saving:
+
+Change one line in your php.ini
+Change cgi.fix_pathinfo=1 to a 0 and uncomment the line.
+To save something in Nano, just press Ctrl+X and type Y and then press Enter.
+
+Before the changes can take effect we need to restart php-fpm by typing in this command:
+
+sudo systemctl restart php7.0-fpm
+Now our change has taken effect.
+
+Step 7: Configure Nginx
+Here is where things will start to get a little tricky. Get your thinking caps on and lets configure our server engine. All the configuration we need to make is in the following config file. Go ahead and open it up in Nano using the following command (use another editor if you prefer).
+
+sudo nano /etc/nginx/sites-available/default
+You will see a lot of lines with # in front of them, these are comments. For simplicity, we will remove comments in this tutorial to make it easier to see what changed.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    
+    root /var/www/html;
+    index index.html index.htm index.nginx-debian.html;
+
+    server_name _;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+The first change we need to make to this file is to allow it to recognize index.php as a valid file to deliver.
+
+In the line with all of the index names, we will add index.php to the list of allowed file types to deliver by default. What this line tells Nginx is to first look for an index file, then look for an index.php file, then an index.html file and so forth. It will start at the beginning and work down until it finds a matching file. Then the matching file is what is sent to the user. We want it to deliver an index.php file before an index.html file, so the order is important here. Add the red text shown below.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    
+    root /var/www/html;
+    index index.php index.html index.htm index.nginx-debian.html;
+
+    server_name _;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+Next we need to add our public domain or IP address to the server_name line. This tells Nginx the domain to respond to. I am going to use an IP address for this tutorial since I am not setting up a domain. But if you have a domain name that you want this server to use then you would put the domain name here instead.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    
+    root /var/www/html;
+    index index.php index.html index.htm index.nginx-debian.html;
+
+    server_name 107.191.44.91;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+Now we need to do a few other housecleaning items. You will want to just trust me on these as they get more complex, but the concepts of what they accomplish should make sense to you. First things first we want to tell Nginx to use your php-fpm that we installed earlier.  This will be represented by the first location block that we add (it will actually be the second on in the document though, make sure to leave the first location block alone (for now, we will come back to configure it for Laravel later).
+
+The second location block we are adding (the third in the file) will be telling Nginx to ignore .htaccess files. This is because .htaccess files are for Apache and we are using Nginx. Sometimes Laravel files will have .htaccess files in them by default so let’s just make sure that if one gets onto our server to make sure it doesn’t interfere with anything and our users do not have access to it.
+
+These changes are marked in red below If you scroll down in your file you will notice that these two location blocks are already written for you, just uncomment the lines if you like or write it as shown below. If you decide to uncomment the lines, make sure you leave the notes commented out and also there is a line that reads fastcgi_pass 127.0.0.1:9000 that should stay commented. Basically just make sure that your uncommented lines match what is below. 
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    root /var/www/html;
+    index index.php index.html index.htm index.nginx-debian.html;
+
+    server_name 107.191.44.91;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+So that is all we need to do for now. We will come back to this file again in a moment, but let’s save and close it for now just to make sure everything is good to go.
+
+To save it remember to press Ctrl + X and then type Y and then press enter.
+
+Now that we have saved the file, make sure it is error free by typing:
+
+sudo nginx -t
+If everything was correct then you should get this notice when submitting the command:
+
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+This means you have no errors. Good work, now to let it take effect you can restart Nginx:
+
+sudo systemctl reload nginx
+With this set up, you are now ready to deploy any PHP application. The server is all set up to accept and deliver it. So in the next few steps we will set it up specifically to work for Laravel 5.
+
+Step 8: Create A Folder for Laravel
+Now that our server is ready to serve files, lets get Laravel files set up so that our server can do what it was born to do and serve them. By default Nginx will look in our /var/www/ folder as the root of where to serve files. So we will add another folder in here called laravel (or whatever you want to call it) and place our Laravel app there.
+
+sudo mkdir -p /var/www/laravel
+Now we have a folder to store Laravel in. Let’s update Nginx so that it knows about this folder. Of course we don’t just tell Nginx about the folder, we need to tell it where to find the default page to run whenever there is a web request. This means we need to understand something about Laravel first.
+
+In Laravel, there is a file called index.php in our public directory. This file is a php file that is actually most of the magic behind Laravel. Regardless of our routes, we always want to load this file. This file then grabs information about the request and sends it to our routes file (in routes/web.php in Laravel 5.3) which then parses the url that was passed into it to determine which controller to send it over to. When the routes file determines which controller and action to implement it does so, executes your controller action, which most likely returns a view that is what ultimately is returned to the user.
+
+The reason that this workflow is important to understand is that regardless of which route you go to, the page that is always loaded is the index.php page. All the routes and views that you see are actually the result of loading this same page on every request. I share this information with you to explain that we just need to tell Nginx to always load the index.php page no matter what, and after that Laravel will do the rest.
+
+In order to update Nginx, we are going to edit the same file we edited before. I will use Nano again, using this command:
+
+sudo nano /etc/nginx/sites-available/default
+This time our focus will be on the root line which is the location that Nginx starts looking for a file to send back to the user. Right now it will default to /var/www/html which is actually just fine location for our app if you want to use it. But we will change it to the laravel/ folder that we just created.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server ipv6only=on;
+
+    root /var/www/laravel/public;
+    index index.php index.html index.htm;
+
+    server_name 100.100.100.100;
+
+    location / {
+            try_files $uri $uri/ =404;
+    }
+
+    # more location blocks continue below
+    # (no changes needed beyond this point)
+Just edit the one red line on root, even though the rest of the file is not displayed above, leave it how it was in the previous steps, only edited the red text.
+
+You will now see that we point to the laravel/public/ directory. This is because the index.php file that we want to use is inside the public/ folder. You can see below that once it gets in that folder it will start looking for index and then index.php where it will find our file and then in turn execute Laravel.
+
+Finally you might remember how I said that the index.php file collects the query data in order to pass it into Laravel. Well we need to do that now, attaching our query string onto the end of the index.php. We will do this after the $uri and $uri/ so that if there is something that needs to overwrite Laravel, they can execute before it gets to Laravel. An example of this is like if you have example.com/phpmyadmin you want the phpmyadmin uri to execute before Laravel. But most stuff will just get caught by Laravel. We also remove the 404 error because we will let Laravel decide if something needs to respond with a 404 error.
+
+Change only the red text and leave everything as it was (remember that the server_name on this example will not match your file, yours will either be the domain name or IP address you were given):
+
+server {
+        listen 80 default_server;
+        listen [::]:80 default_server ipv6only=on;
+
+        root /var/www/laravel/public;
+        index index.php index.html index.htm;
+
+        server_name 100.100.100.100;
+
+        location / {
+                try_files $uri $uri/ /index.php?$query_string;
+        }
+        
+        # more location blocks continue below
+        # (no changes needed beyond this point)
+Now make sure to save the file (Ctrl + X and then Y and then press the enter key). Once you are back at your ssh session (exited Nano) you can restart Nginx so the changes we made take effect.
+
+sudo service nginx restart
+Try visiting your url now in the browser and if everything worked then you should now get a 404 page instead of the Nginx success page (this is actually a GOOD thing). This is because now Nginx is pointing at the Laravel folder (specifically the public folder inside the Laravel folder) instead of the html folder which contains that success page. Of course we haven’t installed Laravel yet, so that public folder doesn’t exist, hence the 404 error.
+
+Step 9: Create Swap File (Optional)
+Before we install composer or Laravel, we need to think about memory. Installing these applications require a larger download (compared to the other little stuff we have been downloading) and might potentially eat up all of our RAM if we are on a smaller server with less than 1Gb of memory. So if your server has more than 1Gb of memory then you can probably skip this step. If not, then it’s a good idea to create a swap file to accomodate the extra download sizes and leave some memory in RAM for our server to run during the download.
+
+Building a swap file allows the operating system to move data off the RAM memory and onto the SSD when it doesn’t have enough space. This is mostly only important while installing larger applications.
+
+We will create a 1Gb swap file on the SSD:
+
+sudo fallocate -l 1G /swapfile
+Now we tell Ubuntu to format it as swap space:
+
+sudo mkswap /swapfile
+And finally to start using it we type:
+
+sudo swapon /swapfile
+Now we are good to install larger stuff.
+
+Step 10: Install Composer
+You have installed composer before (otherwise you wouldn’t have made it to this point in your life where you are reading a tutorial about how to deploy a Laravel app), and this is no different than before. Follow the instructions just like on the GetComposer.org website.
+
+cd ~
+curl -sS https://getcomposer.org/installer | php
+Now we have composer.phar in our home folder, and it’s time to move it into our bin so we can use composer commands easier by just typing composer.
+
+sudo mv composer.phar /usr/local/bin/composer
+You can try typing `composer right now and you should get all the composer help files you are used to getting when using it on your local computer. Hopefully you are starting to feel at home.
+
+Step 11: Install Git
+Since the year is 2016 and not 2006 you really should be using git to deploy your application. So you could always use SFTP to get your Laravel 5.3 app onto your server, but that is not only less secure, but it also WAY SLOWER. While it might work fine the first time, it becomes a pain in the ass for future updates. Using git, pushing to our server is effortless and has virtually no downtime.
+
+We will install Git onto our server now in a folder called /var/repo/ which is near our Nginx folder of /var/www/laravel/. Let’s make the folder now.
+
+cd /var
+mkdir repo && cd repo
+This will move us into our /var/ directory and then make a new directory called repo/ and then move us into that folder. You should now be inside /var/repo/ when you execute the next commands.
+
+mkdir site.git && cd site.git
+git init --bare
+The --bare flag might be a new one for you, and that is because it is generally only used on servers. A bare repo is a special kind of repo whose sole purpose is to receive pushes from developers. You can learn more about these types of repositories from the official git site.
+
+We now have a git repository in /var/repo/site.git congratulations!
+
+Step 12: Setting Up Git Hooks
+Git repositories have a cool feature called hooks that we are going to use to move our files after a git push. Think of git hooks like webhooks or maybe wordpress hooks. Basically you can create scripts that execute when certain hooks are triggered. There are three hooks available through Git: pre-receive, post-receive, and update.
+
+We will focus on the post-receive hook which triggers after the repo has fully downloaded your files and completed receiving a push.
+
+To set up hooks we need to move into the hooks directory inside of our site.git folder. In /var/repo/site.git# we can type ls to see all the files and folders inside. You will see the hooks/ directory which we need to cd into.
+
+Once you are inside the hooks/ directory we are going to create the post-receive script. We will be using a new command called touch which makes an empty file.
+
+sudo nano post-receive
+Now you will open up a blank file in Nano (terminal text editor). Type the next two lines into the file and save and exit the file.
+
+#!/bin/sh
+git --work-tree=/var/www/laravel --git-dir=/var/repo/site.git checkout -f
+Now save and exit (the same way we keep doing it Ctrl + X then Y to confirm the save and enter to save it as /var/repo/site.git/hooks/post-receive. This file is where all of the magic happens.
+
+The  --work-tree= tells git where to copy received files to after it has completed. We set it to point to the folder for our Laravel application that we made earlier. The --git-dir= tells git where the bare git directory is that has received the files. It is that simple. Make sure that the whole command is on one line (including the checkout -f).
+
+After you save the /var/repo/site.git/hooks/post-receive file, you need to make one last command before we leave this folder and push our files up. The post-receive file needs execution permissions in order to copy these files over. So we can do that really quick with one line of code. Make sure you are still in /var/repo/site.git/hooks/ folder when you type this command:
+
+sudo chmod +x post-receive
+That is it! Now when we push to this repository on our server, the files will be placed in our /var/www/laravel/ directory and Nginx can begin to serve them to our users.
+
+We are now done on our server for now, we need to exit the ssh session to access our local machine for the next step. Type the following command to end your ssh session.
+
+exit
+Your command prompt should now change to the name of your computer instead of root@localhost#. This indicates you are no longer on your server and you are making changes now to your local computer.
+
+Step 12: Set up our Local Computer to Push to Production
+Now that our server is set up to receive the files, let’s set up our local computer so that it can push the files to our server. We will be using git, so make sure that your local computer’s laravel directory is under git version control before you continue.
+
+Just like when we push our files up to github, we set up a git remote called origin that represents github. So when we want to push to github we make a command like this git push origin branchname. This tells git to push the branch (branchname in this example) to our origin remote.
+
+Now in the same fashion that we set up github as a push location, we will also set up our new server as a push location. I like to call this remote by the name production which represents our live production website. The goal is that after we set it up, we can tell it to push to our server from our local computer by just typing the command git push production master and this will push the master branch to our production server. You can continue to push to github using git push origin master but then when you are ready to make changes go live you will run the push to production.
+
+Note: You can create as many “remotes” as you want in git. It is common to have a secondary server called “staging” which is where push your project to for quality testing before pushing to a live site. The staging site is like a beta for you to test internally in a production-like enviroment before the whole world sees it in real production. In this case you could create another server (just following the directions in this tutorial again) and create another “remote” called “staging”. Now you can use a command like git push staging master to push to staging for testing. Then when you feel that the version is safe for the public, you can run git push production master to push it to the production server. You can also set up other remote servers for git backups (like gitlab) or testing servers, or alpha tests and stuff.
+
+To set up a new remote you use the git remote add  command. Before you do this make sure you are in the correct location. First of all you should no longer be on your server. If you still see root@localhost# in your prompt then you are on your server still. Type exit and click enter to leave the server. You should see the name of your computer in the command prompt now. Use cd commands to get into your laravel project folder that you want to push to the server. In my case my project is under /Sites/blog so i type this to get into my folder via the terminal:
+
+cd Sites/blog
+Also make sure you have git setup for this project. I am assuming you have already made at least one commit (but probably many) and you are currently on your master branch which contains your latest production-ready code.
+
+Make sure that you substitute the red text with your domain name or IP address that you use to ssh into your server.
+
+git remote add production ssh://root@example.com/var/repo/site.git
+Make sure to substitute the red text with your domain or IP address. The command should mimic the ssh command you use to log into your server. So if you type ssh root@100.100.100.1 to get into your server than 100.100.100.1 is what it should show on the command above.
+
+With this command we now created a remote called production that sends our files to the new bare git repo we made on our server.
+
+Now once again, assuming your project code is production ready and is on your master branch then you can type this command to push it up to your server:
+
+git push production master
+The output will look just like when you push to github, but this time you are pushing to your own server! Let’s log back into our server now to make sure it worked.
+
+Step 13: Verify our Git Hook Works
+Now let’s make sure our code is in the right place. It should be in our /var/www/laravel/ folder on our server. It is easy to check, jut log back into your server and look at the directory.
+
+ssh root@example.com
+Remember that example.com needs to be changed to your domain or ip address. Now cd into your laravel folder.
+
+cd /var/www/laravel
+ls
+You should now see what appears to be a Laravel project. You can poke around but it should mimic your files from your local computer. Honestly anything in here is a good sign because it was empty the last time we logged off the server. If you have your Laravel project in here then you have done everything right.
+
+Step 14: Run Composer
+Hey remember when we installed composer a while ago? Well let’s use it. Now that we have Laravel on our server and all the files we need, lets run composer to get it working. Make sure you are in /var/www/laravel/ when you run composer commands because you want to be inside your laravel project.
+
+composer install --no-dev
+The --no-dev command flag is very important. Without it, composer will try to install a bunch of stuff that you do not need on production. It is also very likely that the install will fail as well, since some of the dev dependencies won’t work on our server. By adding --no-dev we are only installing the main require elements and not other random things.
+
+Step 15: Laravel Permissions
+In order to run, Nginx needs certain permissions over the Laravel directory we made. We need to first change ownership of the laravel directory to our web group.
+
+sudo chown -R :www-data /var/www/laravel
+Now the web group owns the files instead of the root user. Next we need to give the web group write privileges over our storage directory so it can write to this folder. This is where you store log files, cache, and even file uploads.
+
+sudo chmod -R 775 /var/www/laravel/storage
+Now go to your web browser and type in your domain or IP address to attempt to view the site. What do you see?
+
+Laravel 5.3 Error message
+This is actually a good thing to see.
+If everything went “right” then you should see an error, Haha. This time though you will see a Laravel error, however which actually means that now Laravel is working. You know the all-to-familiar “Whoops something went wrong!” message and should recognize it with Laravel. If you tried this before then you got a simple 500 server error displayed by your browser, not by Laravel. The fact we see this error is actually a good thing because it means that Laravel is giving us the error and not Nginx.
+
+Now I skipped a step intentionally. Before we go back and fix it, I wanted to show you how to troubleshoot on your server. If you thought troubleshooting was hard on your local machine, just wait till the world of live servers. Of course the idea is that you test your app so well before pushing to production that this never happens (trust me that is a pipe dream, every developer will experience errors on production at some point, just try to keep them to a minimum).
+
+You might wonder why you don’t get the stack trace or why you don’t get a message explaining what the error is, like you are used to when you ran into this screen on your local computer. This is because our Laravel environment is currently set to production so Laravel recognizes that and intentionally does not output detailed error messages when something goes wrong. This is for your security. Would you want all of your visitors to see a full stack trace of your application? No, this is like giving your stalker full access to your diary, its a terrible idea. So on production you will only see these types of messages when something goes wrong. To see what happened, we need to look at our log file. Luckily now that Laravel has access to our write to our storage/ folder, it now has the ability to create log files (which it couldn’t do before).
+
+Let’s go take a look at our log file to see what went wrong. To find the log file, navigate to /var/www/laravel/storage/logs and if you type ls in this folder you will find a lone laravel.log file. Go ahead and open this file up in your terminal and let’s see what is inside.
+
+nano laravel.log
+You should now see the errors that you are used to seeing on the error page. This is a safe place to store error messages because the only person that can read them are people that have full access to the server. If a hacker gets full access to your server then you have much bigger problems than the fact that they can read your log files.
+
+Here is what my log file says. Your file should look similar:
+
+Laravel 5.3 Error message in Log File
+Some information flows off the screen.
+The important part is the first line which gives you the error (and the timestamp of when it happened). To help us identify the error, I added bold green text over the important parts.
+
+[2016-08-29 02:10:21] production.ERROR: ErrorException: file_put_contents(/var/www/laravel/bootstrap/cache/services.php): failed to open stream: Permission denied in /var/www/laravel/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php:81
+
+Stack trace:
+
+// Continues below with full stack trace...
+Basically this error says that it is unable to write to the /boostrap/cache/ folder. If we look at the Laravel Installation Documentation we can see that we were supposed to make the boostrap/cache/ folder writable in addition to the /storage/ folder. So let’s go back and fix that.
+
+sudo chmod -R 775 /var/www/laravel/bootstrap/cache
+Ok, now the cache folder is writable. There are a few things though that we need to do. But we are getting really close to our app being ready to deploy.
+
+Step 16: Database Setup
+So we installed MySQL a while back, but we haven’t set up an actual database inside of it yet to store our application data. So now is the time to go set that up, so that we can configure it and run our migrations.
+
+Lets get into MySQL by typing the following command:
+
+mysql -u root -p'yourpassword'
+Make sure to change the red text with your actual password (but keep the single quotation marks). Also note that there is no space between the -p and the first quotation mark.
+
+Now you will see a command prompt change to:
+
+mysql>
+This indicates that you are in the MySQL CLI now instead of the ssh. We aren’t going to learn all of the MySQL CLI commands here today, just the essential ones.
+
+SHOW DATABASES;
+This will show you all of the databases you have on this system. Now we need to make a new database for our Laravel app to use. You can call it whatever you want. Just make sure to remember the name and keep it all lowercase.
+
+CREATE DATABASE blog;
+The red text is where you substitute the name of your new database. I called it blog in this case.
+
+Now if you wanted, you could run SHOW DATABASES; again and you will find the list of databases and your new database should be in the list.
+
+That is all we needed. We have set up our database now, we can configure Laravel to start using it and then run migrations onto it.
+
+To leave the MySQL command prompt you simply type:
+
+exit
+MySQL is super friendly and will say ‘Bye’.
+
+Step 17: Configuring Laravel
+Now all we have left is to configure our Laravel app. This is the same way you would configure your Laravel app on your computer. We will use the config files and also set up a .env file. Remember that when we push to production that any file in our .gitignore will not be sent to our server. So any of those files need to be set up again. If done correctly, this isn’t a big deal, your node_modules should not be there, or your vendor files, which is ok because you don’t need them on production (you should use Elixir to compile the ones you need into your public/ or resources/assets/ folders prior to pushing to production).
+
+Also remember that by default your storage directory is in your .gitignore file which means that anything stored in there (like user avatars) will not be transferred to the server. This is by design, but explaining this design decision is more complicated than we can get into right now.
+
+It is just a good idea to look at your .gitignore and understand that everything in your .gitignore file will NOT be on the server. If you see something important on there than you either need to recreate it on your server or you need to edit your .gitignore file so that it includes it in your repository.
+
+Understanding the .env File
+Really the only important file in your .gitignore file that our application really needs is the .env file. Now once again this is by design, so do not hastily remove it from the .gitignore file. Keep it in there, because it is very dangerous to put your .env file into your repository. The .env will contain private information, passwords, SMTP credentials, API keys, and more that all need to be kept very secret. So you should make a .env file for your server that represents your production environment and this will be different from the one on your local machine which contains information for your local enviroment.
+
+For example, you might use mailtrap.io as your mail server on local, so that is the settings you put in your .env file under SMTP settings. However on production we need an actual SMTP server to send real emails from so the server’s .env file will contain your SMTP credentials for SendGrid, Amazon SES, or whatever you choose to use for mail delivery.
+
+Another example is database information, which will be different between your local and production enviroments. Some devs even use different database drivers, opting for SQLite on local and PostgreSQL in production.
+
+Once you have a .env file set up for your server and one for your local then you can push your code between your local computer and your server and the different settings will instantly take effect. Because git doesn’t touch your .env file, then it will not change when the other code is pushed, but Laravel will use the information in the .env to run everything.
+
+Ok, I think we now know why we use a .env file, so now let’s create one for our server.
+
+Creating our .env file
+One file is kept in our git repo and that is the .env.example. This is an example .env file that we can use to get started. So we will start with this example file to create our server .env. Lets copy the .env.example and rename it .env. We want to copy instead of move because that way the .env.example file doesn’t get pulled from the repo and we can use it again later as a template if we mess up.
+
+To copy and rename the file we will use the cp linux command. Make sure before you do this that you are inside your laravel folder (in /var/www/laravel/) because that is where the .env.example is located.
+
+To make sure that you are in the right place, run the ls command but run it with the -A flag so that you can see the hidden files (the . before the filename indicates that it is hidden).
+
+ls -A
+This should show all of your folders and files, including the hidden files. You should see your normal Laravel structure ( app/ , public/, storage/ and so forth) and also normal files like composer.json, gulpfile.js, and finally your .env.example. Now you know you are in the right spot.
+
+Now that you are in the right spot, lets copy the file.
+
+cp .env.example .env
+If you run ls -A again then you should see your .env file next to your .env.example (they should both be there).
+
+Now we can edit our .env by opening it with a text editor of your choice (once again we will use nano for simplicity).
+
+nano .env
+Inside this file you will be able to overwrite many of the config settings. Remember that anything in the .env file will override whatever is in the config files.
+
+Edit the .env file
+
+Now that we have created this .env file, it is going to override the settings in our config file. So for example, our config/app.php file has our environment set to ‘production‘ but our new .env file has the APP_ENV set to local instead. So now this will switch our application to local which is a security concern. So we either need to remove the line or change it to what we want.
+
+APP_DEBUG is what sets those error messages that we talked about earlier. We need to make sure that is set to false.
+
+APP_KEY needs to also be set, but we will set that in a moment with an artisan command.
+
+Next comes your database settings. You will need to configure your DB_HOST to be localhost, set the DB_DATABASE to be the name of the database we just created in the last step, and then set your username and password for the database in the DB_USERNAME and DB_PASSWORD fields.
+
+You might want to adjust your cache, queue, and session drivers if you know what you are doing. But the defaults are good for most apps.
+
+Lastly you will want to change the MAIL settings as well. Just configure it based on the settings for your email service provider. The settings are pretty self-explanatory and outside of the scope of this tutorial.
+
+Now Save the file using the Ctrl + X command we usually do.
+
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=SomeRandomString
+
+DB_HOST=localhost
+DB_DATABASE=blog
+DB_USERNAME=root
+DB_PASSWORD=XXXXXXXXX
+
+CACHE_DRIVER=file
+SESSION_DRIVER=file
+QUEUE_DRIVER=sync
+
+REDIS_HOST=localhost
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+MAIL_DRIVER=smtp
+MAIL_HOST=sendgrid.com
+MAIL_PORT=2525
+MAIL_USERNAME=XXXXXXXXXXX
+MAIL_PASSWORD=XXXXXXXXXXX
+MAIL_ENCRYPTION=null
+Take extra care to make sure the red parts get changed. If you are not using Redis database then you can delete those lines (but keeping them in won’t hurt anything either). Take extra care to double check that the APP_ENV  is set to production and that APP_DEBUG is set to false.
+
+I always like to take a look at my local .env file as well just to make sure that I didn’t add any other .env settings while building my app. An example is in many of my apps I create a GOOGLE_MAPS_API setting to pull my Google Maps API key. If I forget to add that to my production .env file then my maps won’t work and I will have javascript errors.
+
+We should now have most of our app set up. Just a few more configurations to make.
+
+Encryption Key
+There is one line we left default in our .env file, the APP_KEY. Laravel needs this key to be set up in order to encrypt our sessions, cookies, and passwords. This needs to be a random key that is unique to our application to make everything more secure. We can generate this key with an artisan command. Remember those? Yeah, we can use those directly on our server, just like we did on our local computer.
+
+Let’s run the artisan command to generate a secure encryption key.
+
+php artisan key:generate
+After clicking enter you should see a green line that says:
+
+Application key [8LTYOFGu3aBTUSiGea24KWYYrHGRXmxK] set successfully.
+Of course the long number inside the square brackets will be different for you, because it is supposed to be random.
+
+If you are curious, this artisan command will actually write to your .env file for you. So you really don’t need to do anything. But for the adventerous among you, go back to your .env file and look inside.
+
+nano .env
+You should see the APP_KEY filled out now with your random key.
+
+Env File with Encryption Key
+Your APP_KEY will now be filled out automatically with your random key.
+A Few More Config Settings To Change
+Our .env file is complete, but there are just a few more settings we want to change before we are live. These settings are all in our config/ files.
+
+In config/app.php there are a few things to edit. Set the 'url' to your actual domain name. Also make sure that your 'timezone' is set correctly too. This needs to be an officially supported PHP time zone string. If you are not sure what your timezone string is, you can find the official timezone strings on the PHP Manual.
+
+<?php
+
+return [
+    'env' => env('APP_ENV', 'production'),
+    
+    'debug' => env('APP_DEBUG', false),
+
+    'url' => 'http://example.com',
+
+    'timezone' => 'America/Denver',
+
+    'locale' => 'en',
+
+    'fallback_locale' => 'en',
+
+    [CONTINUES BELOW]
+]
+Change the red sections (note that comments were removed for readability). Save the file and you are done with your configuration.
+
+Cache Configuration Settings
+You might have noticed that there are lots of config files in our application. They inherite and cross reference eachother, all of which makes the configuration easier to read, but slower for PHP to compile on the fly.
+
+Because of this, it is a good idea to cache all of the configuration settings into one cached config file. We can do this with another artisan command.
+
+In your terminal (in the /var/www/laravel/ folder):
+
+php artisan config:cache
+This will output:
+
+Configuration cache cleared!
+Configuration cached successfully!
+Now all of our configuration settings are compiled together into one quick file. Of course don’t forget now that they are cached. So if you make another change to your .env file or to a file in your config/ folder, that you need to also recompile the config cache before it will take effect.
+
+Step 18: Migrate our Database
+Now that everything else is set up you can actually run your app. The only problem you might still have is that if your app relies on a database, then you need to migrate your database. We do this in much the same way as on our local computer. At this point our configuration files should have everything we need to set up and communicate with our database, so migrating now should be simple.
+
+php artisan migrate
+This will warn you that your app is in production and make sure that you want to actually run your migrations. The default setting is “no” also so its very difficult to accidentally migrate your live database. This can be good because sometimes you might forget you are logged into your server on SSH and just grab the nearest terminal window to run what you think are local migrations, but really they are production migrations. This script makes sure we know what we are doing.
+
+Type Y to continue and migrate your database.
+
+php artisan migrate production
+After you select Y to migrate, you will see all of your migration catch up.
+That’s it! Your database is now set up and ready to go.
+
+Step 19: Miscellaneous Things
+That is it! We have everything set up we need in order to start using our application on production. Remember that you have a database, but the database is empty. You might need to create a default admin user or something. You can run a database seed now if you have one set up. You can run it using the artisan command:
+
+php artisan db:seed
+Or if you do not have a seed setup then you can run:
+
+php artisan tinker
+This opens up a console where you can add Laravel commands and execute them immediately. To make a new default user for example you could use:
+
+$user = new App\User;
+$user->name = 'Alex Curtis';
+$user->email = 'alex@example.com';
+$user->password = Hash::make('password');
+$user->save();
+
+exit
+This will create a user in our database named Alex Curtis with an email of alex@example.com and a password of password (it will save the hashed version of course, but password would be the password we type in).
+
+You might also need to start a queue worker and other various tasks like that. But if you navigate over the browser you should now have access to your full application
+in its entirety.
+
+
+https://devmarketer.io/learn/deploy-laravel-5-app-lemp-stack-ubuntu-nginx/
